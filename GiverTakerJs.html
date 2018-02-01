@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style></style>
+<script>
+
+/** @author MultiTool */
+{// class Things 
+  const CellWdt = 10, CellHgt = 10;
+  const OrgBorder = 1;
+  const OrgWdt = CellWdt - OrgBorder * 2, OrgHgt = CellHgt - OrgBorder * 2;// creature rectangle size
+  let DramaFactor = 0.2;// scales size of transactions
+  let Entropy = 0.049 * DramaFactor;// tax that sucks energy out of each transaction
+  // None of these following values have to be the same for both giver and taker, but they are for now, for convenience.
+  let Grace = 0.5;// Bonus energy to keep Takers from eating their children right away
+  let LThresh = 1.0;// minimum energy needed for continued life 
+  let BThresh = LThresh * 2.0 + Grace * 2.0;// minimum energy needed to give birth
+  let SelfImpact = 0.10; // scale of effect that stealing or giving has on self
+  let SocialImpact = 0.20;// 0.15; // scale of effect that stealing or giving has on neighbors
+  let Generation = 0;
+  /* *************************************************************************************************** */
+  //constructor() { }
+  /* *************************************************************************************************** */
+  let OrgType ={ Giver:'Giver', Taker:'Taker' };
+  /* *************************************************************************************************** */
+  const GiverType = 0, TakerType = 1, NumTypes = 2;
+  /* *************************************************************************************************** */
+  class Org {// organism
+    constructor() {
+      this.MyType = -1;// GiverType TakerType 
+      this.E = 0; // E for Energy.  AKA: fat, fitness, or food.
+    }
+    GetSpareE() {// food above survival level
+      return this.E - LThresh;
+    }
+    IsMoribund() {
+      return this.E < LThresh;// if E not enough to live
+    }
+    Interact(Nbr) {
+    }
+    GiveBirth() {
+      return null;
+    }
+    Draw_Me(g2, XOrg, YOrg) {
+      g2.setColor(Color.BLACK);
+      g2.fillRect(XOrg + OrgBorder, YOrg + OrgBorder, OrgWdt, OrgHgt);
+    }
+  }
+  /* *************************************************************************************************** */
+  class Giver extends Org { // Altruist
+    constructor() {
+      super();
+      this.MyType = GiverType;
+    }
+    GetSpareE() {// @Override// food above survival level
+      return this.E - LThresh;
+    }
+    Interact(Nbr) {// @Override
+      if (this.E > 0.0) {
+        Nbr.E += Giver.YouGetQuant;
+        this.E -= Giver.IGiveQuant;
+      }
+    }
+    GiveBirth() {// @Override
+      let child = new Giver();
+      child.E = LThresh + Grace;/* Give the child LThresh, and bill the parent. */
+      this.E -= child.E;
+      return child;
+    }
+    Draw_Me(g2, XOrg, YOrg) {
+      g2.setColor(Color.green);
+      g2.fillRect(XOrg + OrgBorder, YOrg + OrgBorder, OrgWdt, OrgHgt);
+    }
+  }
+  Giver.YouGetQuant = SocialImpact * DramaFactor;// like static
+  Giver.IGiveQuant = SelfImpact * DramaFactor;
+  
+  /* *************************************************************************************************** */
+  class Taker extends Org { // Pillager
+    constructor() {
+      super();
+      this.MyType = TakerType;
+    }
+    GetSpareE() {// @Override// food above survival level
+      return this.E - LThresh;
+    }
+    Interact(Nbr) {// @Override
+      if (Nbr.E > 0.0) {
+        Nbr.E -= Taker.YouLoseQuant;
+        this.E += Taker.IGetQuant;
+      }
+    }
+    GiveBirth() {// @Override
+      let child = new Taker();
+      child.E = LThresh + Grace;/* Give the child LThresh, and bill the parent. */
+      this.E -= child.E;
+      return child;
+    }
+    Draw_Me(g2, XOrg, YOrg) {
+      g2.setColor(Color.red);
+      g2.fillRect(XOrg + OrgBorder, YOrg + OrgBorder, OrgWdt, OrgHgt);
+    }
+  }
+  Taker.IGetQuant = SelfImpact * DramaFactor;// like static
+  Taker.YouLoseQuant = SocialImpact * DramaFactor;
+  
+  /* *************************************************************************************************** */
+  const OrgMaker = [new Giver(), new Taker()];// creature factory
+  /* *************************************************************************************************** */
+  class Soil { // a cell of soil that a creature/organism can occupy
+    /* *************************************************************************************************** */
+    constructor() {
+      this.Ctr = null;// pointer to creature
+      this.MyDex = -1;// my own index in gridworld
+      this.FattestNbr = null;
+      this.Fertility = 0.0;
+      this.NumNbrs = 8;
+      this.Nbrs = [];// connections to neigboring soil cells. can be any topology.
+    }
+    /* *************************************************************************************************** */
+    UpdateFertility() {
+      let BestNbr = null;
+      let BestNbrE = -1.0;
+      let BestCnt = 0;
+      // Pick the fattest neighbor. If there is a tie, pick randomly from among the best.
+      for (let nbrcnt = 0; nbrcnt < this.NumNbrs; nbrcnt++) {
+        let ph = this.Nbrs[nbrcnt];// Soil cell of neighbor
+        let sampleE = (ph.Ctr == null) ? 0.0 : ph.Ctr.GetSpareE();
+        if (BestNbrE < sampleE) {
+          BestCnt = 1;
+          BestNbr = ph;
+          BestNbrE = sampleE;
+        } else if (BestNbrE == sampleE) {
+          BestCnt++;
+          let Odds = 1.0 / (BestCnt);
+          if (Math.random() < Odds) { // In the case of a tie, pick randomly.
+            BestNbrE = sampleE;
+            BestNbr = ph;
+          }
+        }
+      }
+      this.Fertility = BestNbrE;// side effect! inelegant.
+      this.FattestNbr = BestNbr;
+      return BestNbr;
+    }
+    /* *************************************************************************************************** */
+    IsFertile() {
+      if (this.Fertility >= BThresh) {// wrong!! work this out right.
+        return true;
+      }
+      return false;
+    }
+    /* *************************************************************************************************** */
+    AcceptChild() {
+      let child = this.FattestNbr.Ctr.GiveBirth();// Birth
+      this.Ctr = child;
+    }
+    /* *************************************************************************************************** */
+    Vacate() {
+      this.Ctr = null;// delete this.Ctr
+      this.Fertility = 0;
+    }
+    /* *************************************************************************************************** */
+    GetRegionE() {
+      let NbrE = 0;
+      for (let nbrcnt = 0; nbrcnt < this.NumNbrs; nbrcnt++) {
+        let Nbr = this.Nbrs[nbrcnt];
+        if (Nbr.Ctr != null) {
+          NbrE += Nbr.Ctr.E;
+        }
+      }
+      this.Fertility = NbrE;
+      return NbrE;
+    }
+    /* *************************************************************************************************** */
+    Spawn() {// alternate way, all neighbors contribute to child (not used)
+      let NbrEList = [];
+      for (let nbrcnt = 0; nbrcnt < this.NumNbrs; nbrcnt++) {
+        let PhNbr = this.Nbrs[nbrcnt];
+        if (PhNbr.Ctr != null) {
+          NbrEList[PhNbr.Ctr.MyType] += PhNbr.Ctr.E;
+        }
+      }
+
+      let FattestType = 0;
+      let MaxFat = -1.0;
+      for (let tcnt = 0; tcnt < NumTypes; tcnt++) {
+        if (MaxFat < NbrEList[tcnt]) {
+          MaxFat = NbrEList[tcnt];
+          FattestType = tcnt;
+        }
+      }
+      if ((MaxFat - LThresh) >= BThresh) {
+      }
+      return MaxFat;
+    }
+    /* *************************************************************************************************** */
+    Interact() {
+      if (this.Ctr != null) {
+        for (let Nbr of this.Nbrs) {
+          if (Nbr.Ctr != null) {
+            this.Ctr.Interact(Nbr.Ctr);
+          }
+        }
+        this.Ctr.E -= Entropy;
+      }
+    }
+    /* *************************************************************************************************** */
+    Draw_Me(g2, XOrg, YOrg) {
+      g2.setColor(Color.black);
+      g2.drawRect(XOrg, YOrg, CellWdt, CellHgt);
+      if (this.Ctr != null) {
+        this.Ctr.Draw_Me(g2, XOrg, YOrg);
+      }
+    }
+  }
+  /* *************************************************************************************************** */
+  class GridWorld {// extends ArrayList<Soil> {
+    /* *************************************************************************************************** */
+    constructor() {
+      this.Sz = 0;
+      this.Wdt = -1, this.Hgt = -1;
+      this.BirthNum = -1; this.DeathNum = -1;// migrating from collections to arrays 
+      this.BirthList=[]; this.DeathList=[]; // in the future, want to migrate these to real arrays, for performance and C portability
+      this.ShuffleDex=[];
+      this.CensusRay = []; this.CensusRay[0] = 0; this.CensusRay[1] = 0; // NumTypes
+      this.Grid = [];
+    }
+    /* *************************************************************************************************** */
+    Init() {
+      //this.Init_Topology(40, 40);
+      this.Init_Topology(20, 20);
+      if (true) {
+        this.Init_Seed();
+      } else {
+        this.Init_Seed_Island();
+      }
+    }
+    /* *************************************************************************************************** */
+    Init_Topology(WdtNew, HgtNew) {
+      this.Wdt = WdtNew;
+      this.Hgt = HgtNew;
+      this.Sz = HgtNew * WdtNew;
+      this.BirthList = [];//new Soil[this.Sz];
+      this.DeathList = [];
+      this.ShuffleDex = [];
+      // fill cells
+      for (let cnt = 0; cnt < this.Sz; cnt++) {
+        let ph = new Soil();
+        ph.MyDex = cnt;
+        this.Add(ph);
+        this.ShuffleDex[cnt] = ph;
+      }
+
+      // connect here
+      for (let Row = 0; Row < this.Hgt; Row++) {
+        for (let Col = 0; Col < this.Wdt; Col++) {
+          let ctr = this.GetXY(Col, Row);// get self
+
+          let localcnt = 0;
+          for (let Ycnt = -1; Ycnt <= 1; Ycnt++) {
+            let NbrY = Row + Ycnt;
+            if (NbrY < 0) {
+              NbrY += this.Hgt;
+            } else if (NbrY >= this.Hgt) {
+              NbrY -= this.Hgt;
+            }
+
+            for (let Xcnt = -1; Xcnt <= 1; Xcnt++) {
+              if (!(Ycnt == 0 && Xcnt == 0)) {// don't connect to self
+                let NbrX = Col + Xcnt;
+                if (NbrX < 0) {
+                  NbrX += this.Wdt;// wrap around to right edge
+                } else if (NbrX >= this.Wdt) {
+                  NbrX -= this.Wdt;// wrap around to left edge
+                }
+                ctr.Nbrs[localcnt] = this.GetXY(NbrX, NbrY);// get nbr
+                localcnt++;
+              }
+            }
+
+          }
+        }
+      }
+    }
+    /* *************************************************************************************************** */
+    Init_Seed() {
+      let Birth_Weight = LThresh * 1.5;// + Grace * 1.5;
+      let GiverFraction = 0.22, TakerFraction = 0.22; // liklihood of any cell containing a given creature
+      let TakerThreshold = GiverFraction+TakerFraction;
+      for (let cnt = 0; cnt < this.Sz; cnt++) {
+        let box = this.Get(cnt);
+        let chance = Math.random();
+        if (chance < GiverFraction) {
+          box.Ctr = new Giver();
+          box.Ctr.E = Birth_Weight;
+        } else if (chance < TakerThreshold) {
+          box.Ctr = new Taker();
+          box.Ctr.E = Birth_Weight;
+        } else {} // empty soil cell
+      }
+    }
+    /* *************************************************************************************************** */
+    Init_Seed_Island() {// unused alternate seed pattern 
+      let Birth_Weight = LThresh * 1.2;
+      if (false) {// random sea of takers
+        for (let cnt = 0; cnt < this.Sz; cnt++) {
+          let box = this.Get(cnt);
+          let chance = Math.random();
+
+          if (chance < 0.33) {
+            box.Ctr = new Taker();
+            box.Ctr.E = Birth_Weight;
+          }
+        }
+      }
+	  // rectangular colony of givers
+      // Init_Box_Colony(new Taker(), 17, 17, 4, 4); Init_Box_Colony(new Giver(), 18, 18, 5, 5);
+      //Init_Box_Colony(new Taker(), 16, 16, 7, 7); Init_Box_Colony(new Giver(), 18, 18, 6, 6);
+      Init_Box_Colony(new Giver(), 18, 18, 1, 2);
+    }
+    /* *************************************************************************************************** */
+    Init_Box_Colony(First, Xorg, Yorg, BoxWdt, BoxHgt) {
+      let Birth_Weight = LThresh * 1.2;
+      let Left = Xorg;// (this.Wdt - BoxWdt) / 2;
+      let Top = Yorg;// (this.Hgt - BoxHgt) / 2;
+      let Right = (Left + BoxWdt);
+      let Bottom = (Top + BoxHgt);
+      for (let Ycnt = Top; Ycnt < Bottom; Ycnt++) {
+        for (let Xcnt = Left; Xcnt < Right; Xcnt++) {
+          let box = this.GetXY(Xcnt, Ycnt);
+          box.Ctr = First.GiveBirth();
+          box.Ctr.E = Birth_Weight;
+        }
+      }
+    }
+    /* *************************************************************************************************** */
+    Add(Obj) { this.Grid.push(Obj); }
+    GetXY(Col, Row) {
+      let Dex = (Row * this.Wdt) + Col;
+      return this.Grid[Dex];
+    }
+    Get(Dex) { return this.Grid[Dex]; }
+    GetSz() { return this.Sz; }
+    /* *************************************************************************************************** */
+    Draw_Me(g2, XOrg, YOrg) {
+      for (let Row = 0; Row < this.Hgt; Row++) {
+        for (let Col = 0; Col < this.Wdt; Col++) {
+          let cell = this.GetXY(Col, Row);
+          cell.Draw_Me(g2, XOrg + Col * CellWdt, YOrg + Row * CellHgt);
+        }
+      }
+      let Gen = Generation.toString();
+      let GNum = this.CensusRay[GiverType].toString();
+      let TNum = this.CensusRay[TakerType].toString();
+      g2.setColor(Color.black);
+      g2.drawString("Generation:" + Gen + " Givers:" + GNum + " Takers:" + TNum, XOrg, YOrg - 5);
+    }
+    /* *************************************************************************************************** */
+    Run_Cycle() {
+      this.Interact();
+      this.NacerMorir();
+      this.Census();
+      if (this.CensusRay[GiverType] != 0) {
+        if (this.CensusRay[TakerType] != 0) {
+          console.log("Generation:" + Generation);
+          Generation++;
+        }
+      }
+    }
+    /* *************************************************************************************************** */
+    Interact() {
+      this.ShuffleCells(this.ShuffleDex, this.Sz);// shuffle to prevent spatial bias in order
+      for (let cnt = 0; cnt < this.Sz; cnt++) {
+        let sl = this.ShuffleDex[cnt];
+        sl.Interact();
+      }
+    }
+    /* *************************************************************************************************** */
+    NacerMorir() {// To every thing, turn, turn
+      let MyGrid = this;
+      this.BirthNum = 0;
+      this.DeathNum = 0;
+      // this.BirthList.clear(); this.DeathList.clear();
+      let Sz = MyGrid.GetSz();
+      for (let cnt = 0; cnt < Sz; cnt++) {
+        let ph = MyGrid.Get(cnt);
+        if (ph.Ctr != null){// if my grid cell full:
+          if (ph.Ctr.IsMoribund()) {//if E not enough to live
+            this.DeathList[this.DeathNum] = ph;//this.DeathList.Add(ph);// mark for death
+            this.DeathNum++;
+          }
+        } else {//if this grid cell empty
+          ph.UpdateFertility();// take E of region in grid
+          if (ph.IsFertile()) {// mark cell for possible birth
+            this.BirthList[this.BirthNum] = ph;//this.BirthList.Add(ph);
+            this.BirthNum++;
+          }
+        }
+      }
+      this.ShuffleCells(this.BirthList, this.BirthNum);// randomize to prevent spatial bias in birth order
+      this.SortCells(this.BirthList, this.BirthNum);// sort by sum E here.
+      for (let cnt = 0; cnt < this.BirthNum; cnt++) {
+        let ph = this.BirthList[cnt];// go from most fertile to least fertile soil
+        ph.UpdateFertility();// take E of region in grid
+        if (ph.IsFertile()){// if neighborhood still has resources to create child here
+          ph.AcceptChild();
+        }
+      }
+
+      for (let cnt = 0; cnt < this.DeathNum; cnt++) {// Drag away the corpses.
+        let ph = this.DeathList[cnt];// Drag away the corpses.
+        ph.Vacate();
+      }
+    }
+
+    /* *************************************************************************************************** */
+    ShuffleCells(Cells, Size) {
+      let Temp = null;// randomize to prevent spatial bias in birth order      
+      let Odex = -1;
+      for (let cnt = 0; cnt < Size; cnt++) {
+        Odex = Math.floor(Math.random()*Size);// random org index
+        Temp = Cells[cnt];
+        Cells[cnt] = Cells[Odex];
+        Cells[Odex] = Temp;
+      }
+    }
+
+    /* *************************************************************************************************** */
+    SortCells(Cells, Size) {
+      Cells.sort(function(s1, s2){// sort by sum E here.
+        return (s2.Fertility - s1.Fertility);// sort descending
+      });
+    }
+  
+    /* *************************************************************************************************** */
+    Census() {
+      this.CensusRay.fill(0);// NumTypes
+      for (let cnt = 0; cnt < this.Sz; cnt++) {
+        let soil = this.Get(cnt);
+        if (soil.Ctr != null) {
+          this.CensusRay[soil.Ctr.MyType]++;
+        }
+      }
+    }
+  }
+  
+  /* *************************************************************************************************** */
+  const Color = {BLACK:'BLACK', black:'black', blue:'blue', green:'green', yellow:'yellow', orange:'orange', red:'red'};
+  class Graphics2D { // emulate Java's Graphics2D object
+    constructor(){
+      let canvas = document.getElementById("WorldCanvas");
+      this.ctx = canvas.getContext("2d");
+      this.ctx.font = "10px Arial";
+      this.color = Color.black;
+      this.ctx.lineWidth = 1;
+    }
+    setColor(color){
+      this.color = color;
+      this.ctx.strokeStyle = this.color;
+      this.ctx.fillStyle = this.color;
+    }
+    fillRect(XOrg, YOrg, Wdt, Hgt){
+      this.ctx.beginPath();
+      this.ctx.rect(XOrg, YOrg, Wdt, Hgt);
+      this.ctx.fill();
+    }
+    drawRect(XOrg, YOrg, Wdt, Hgt){
+      this.ctx.beginPath();
+      this.ctx.rect(XOrg, YOrg, Wdt, Hgt);
+      this.ctx.stroke();
+    }
+    clearRect(XOrg, YOrg, Wdt, Hgt){
+      this.ctx.clearRect(XOrg, YOrg, Wdt, Hgt);
+    }
+    clearCanvas(){
+      this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+    }
+    drawString(Text, XOrg, YOrg){
+      this.ctx.fillText(Text, XOrg, YOrg);
+    }
+  }
+  
+  /* *************************************************************************************************** */
+  function RunWorld(){
+    let world = new GridWorld();
+    world.Init();
+    let g2 = new Graphics2D();
+    
+    function Draw(){
+      g2.clearCanvas();
+      world.Draw_Me(g2, 10, 20);
+      world.Run_Cycle();
+      requestAnimationFrame(Draw);
+    }
+    
+    var requestAnimationFrame = window.requestAnimationFrame;
+    Draw();// Start the animation! 
+  }
+
+}// Things
+
+</script>
+</head>
+<body onload="RunWorld()">
+  <h2>GiverTaker Automata</h2>
+  <div>Blind Altrusists vs. Blind Pillagers</div>
+  <div style="position:relative; ">
+    <canvas id="WorldCanvas" width="225" height="250" style="border:1px solid #000000;">
+      Your browser does not support the HTML5 canvas tag.
+    </canvas>
+  </div>
+  <div>
+    Press F5 to start the simulation over. Quite often everyone goes extinct!  
+  </div>
+</body>
+</html>
+
+
