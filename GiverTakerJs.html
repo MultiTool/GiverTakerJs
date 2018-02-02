@@ -2,11 +2,29 @@
 <html>
 <head>
 <style></style>
+
+<script>
+
+function TryRunning(){// First test if browser can support Javascript ES6 classes.
+  try { 
+    eval('"use strict"; class foo{}'); 
+    RunWorld();
+  } catch (e) {
+    var Message = "This browser does not support Javascript ES6 classes. <br/><br/> Try using a recent version of Chrome, Firefox, Edge or Safari.";
+    // alert(Message);
+    console.log(e);
+    var BodyNode = document.getElementById("BodyNode");
+    BodyNode.innerHTML = "<h1>"+Message+"</h1>";
+  }
+}
+
+</script>
+
 <script>
 
 /** @author MultiTool */
 {// class Things 
-  const CellWdt = 10, CellHgt = 10;
+  const CellWdt = 12, CellHgt = CellWdt;
   const OrgBorder = 1;
   const OrgWdt = CellWdt - OrgBorder * 2, OrgHgt = CellHgt - OrgBorder * 2;// creature rectangle size
   let DramaFactor = 0.2;// scales size of transactions
@@ -482,11 +500,11 @@
   }
   
   /* *************************************************************************************************** */
-  function ChangeParams(){// ChangeSelfImpact(Value)  ChangeSocialImpact(Value)  ChangeDramaFactor(Value)
-    Giver.YouGetQuant = SocialImpact * DramaFactor;// like static
+  function ChangeParams(){// Not used, just a template for writing these: ChangeSelfImpact(Value)  ChangeSocialImpact(Value)  ChangeDramaFactor(Value)
+    Giver.YouGetQuant = SocialImpact * DramaFactor;
     Giver.IGiveQuant = SelfImpact * DramaFactor;
    
-    Taker.IGetQuant = SelfImpact * DramaFactor;// like static
+    Taker.IGetQuant = SelfImpact * DramaFactor;
     Taker.YouLoseQuant = SocialImpact * DramaFactor;
   }
   
@@ -500,7 +518,7 @@
   /* *************************************************************************************************** */
   function ChangeSocialImpact(Value){
     SocialImpact = Value;
-    Giver.YouGetQuant = SocialImpact * DramaFactor;// like static
+    Giver.YouGetQuant = SocialImpact * DramaFactor;
     Taker.YouLoseQuant = SocialImpact * DramaFactor;
   }
   
@@ -544,18 +562,18 @@
     }
   }
   
-}// Things
+}
 
 </script>
 </head>
-  <body onload="RunWorld()">
+  <body id="BodyNode" onload="TryRunning()">
     <div align="center">
       <h2>GiverTaker Automata</h2>
       <div style="font-weight: bold; ">
         <span style="color:green; ">Blind Altrusists</span> vs. <span style="color:red; ">Blind Pillagers</span>
       </div>
       <div style="position:relative; ">
-        <canvas id="WorldCanvas" width="225" height="250" style="border:1px solid #000000;">
+        <canvas id="WorldCanvas" width="260" height="270" style="border:1px solid #000000;">
           Your browser does not support the HTML5 canvas tag.
         </canvas>
       </div>
@@ -581,6 +599,17 @@
         Press F5 to start the simulation over. Quite often everyone goes extinct!  
       </h4>
     </div>
+    <table style="width:100%; font-size:14px;">
+      <tr>
+        <td>
+          Javascript source code <a href="https://github.com/MultiTool/GiverTakerJs">here</a>, 
+          original Java version <a href="https://github.com/MultiTool/GiverTaker">here.</a> 
+        </td>
+        <td align="right">
+          Written in ES6 Javascript, which should work in every modern browser except IE.
+        </td>
+      </tr>
+    </table>
   </body>
 </html>
 
