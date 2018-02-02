@@ -314,7 +314,7 @@
           }
         }
       }
-	  // rectangular colony of givers
+      // rectangular colony of givers
       // Init_Box_Colony(new Taker(), 17, 17, 4, 4); Init_Box_Colony(new Giver(), 18, 18, 5, 5);
       //Init_Box_Colony(new Taker(), 16, 16, 7, 7); Init_Box_Colony(new Giver(), 18, 18, 6, 6);
       Init_Box_Colony(new Giver(), 18, 18, 1, 2);
@@ -361,10 +361,10 @@
       this.Interact();
       this.NacerMorir();
       this.Census();
+      Generation++;
       if (this.CensusRay[GiverType] != 0) {
         if (this.CensusRay[TakerType] != 0) {
-          console.log("Generation:" + Generation);
-          Generation++;
+          // Generation++;
         }
       }
     }
@@ -482,38 +482,106 @@
   }
   
   /* *************************************************************************************************** */
+  function ChangeParams(){// ChangeSelfImpact(Value)  ChangeSocialImpact(Value)  ChangeDramaFactor(Value)
+    Giver.YouGetQuant = SocialImpact * DramaFactor;// like static
+    Giver.IGiveQuant = SelfImpact * DramaFactor;
+   
+    Taker.IGetQuant = SelfImpact * DramaFactor;// like static
+    Taker.YouLoseQuant = SocialImpact * DramaFactor;
+  }
+  
+  /* *************************************************************************************************** */
+  function ChangeSelfImpact(Value){
+    SelfImpact = Value;
+    Giver.IGiveQuant = SelfImpact * DramaFactor;
+    Taker.IGetQuant = SelfImpact * DramaFactor;
+  }
+  
+  /* *************************************************************************************************** */
+  function ChangeSocialImpact(Value){
+    SocialImpact = Value;
+    Giver.YouGetQuant = SocialImpact * DramaFactor;// like static
+    Taker.YouLoseQuant = SocialImpact * DramaFactor;
+  }
+  
+  /* *************************************************************************************************** */
   function RunWorld(){
+    CreateWidgets();
     let world = new GridWorld();
     world.Init();
-    let g2 = new Graphics2D();
-    
+    let g2 = new Graphics2D();    
+    let RequestAnimationFrame = window.requestAnimationFrame;
     function Draw(){
       g2.clearCanvas();
       world.Draw_Me(g2, 10, 20);
       world.Run_Cycle();
-      requestAnimationFrame(Draw);
+      RequestAnimationFrame(Draw);
     }
-    
-    var requestAnimationFrame = window.requestAnimationFrame;
     Draw();// Start the animation! 
   }
 
+  /* *************************************************************************************************** */
+  function CreateWidgets() {
+    let slider;
+    let SelfImpactTextNode = document.getElementById("SelfImpactText");
+    let SocialImpactTextNode = document.getElementById("SocialImpactText");
+
+    slider = document.getElementById("SelfImpactRange");
+    slider.value = SelfImpact*100;
+    SelfImpactTextNode.innerHTML = slider.value + "%";
+    slider.oninput = function() {
+      ChangeSelfImpact(this.value/100.0);
+      console.log("ChangeSelfImpact:" + this.value);
+      SelfImpactTextNode.innerHTML = this.value + "%";
+    }
+    slider = document.getElementById("SocialImpactRange");
+    slider.value = SocialImpact*100;
+    SocialImpactTextNode.innerHTML = slider.value + "%";
+    slider.oninput = function() {
+      ChangeSocialImpact(this.value/100.0);
+      console.log("ChangeSocialImpact:" + this.value);
+      SocialImpactTextNode.innerHTML = this.value + "%";
+    }
+  }
+  
 }// Things
 
 </script>
 </head>
-<body onload="RunWorld()">
-  <h2>GiverTaker Automata</h2>
-  <div>Blind Altrusists vs. Blind Pillagers</div>
-  <div style="position:relative; ">
-    <canvas id="WorldCanvas" width="225" height="250" style="border:1px solid #000000;">
-      Your browser does not support the HTML5 canvas tag.
-    </canvas>
-  </div>
-  <div>
-    Press F5 to start the simulation over. Quite often everyone goes extinct!  
-  </div>
-</body>
+  <body onload="RunWorld()">
+    <div align="center">
+      <h2>GiverTaker Automata</h2>
+      <div style="font-weight: bold; ">
+        <span style="color:green; ">Blind Altrusists</span> vs. <span style="color:red; ">Blind Pillagers</span>
+      </div>
+      <div style="position:relative; ">
+        <canvas id="WorldCanvas" width="225" height="250" style="border:1px solid #000000;">
+          Your browser does not support the HTML5 canvas tag.
+        </canvas>
+      </div>
+      <table>
+      <tr>
+        <td>Self Impact:</td>
+        <td><input id="SelfImpactRange" style="width:300px; " type="range" min="1" max="100" value="50"></td>
+        <td id="SelfImpactText"></td>
+      </tr>
+      <tr>
+        <td>Social Impact:</td>
+        <td><input id="SocialImpactRange" style="width:300px; " type="range" min="1" max="100" value="50"></td>
+        <td id="SocialImpactText"></td>
+      </tr>
+      </table>
+      <br/>
+      <div style="width:600px; margin-top:10px;" align="left">
+        Self Impact tweaks how much a giver loses when it gives, and how much a taker gains when it takes.<br/><br/>
+        Social Impact tweaks how much a giver's neighbors gain when it gives, and how much a taker's neighbors lose when it takes.<br/><br/>
+        When Social Impact is greater than Self Impact, you have positive-sum giving (resource creation) and negative-sum taking (resource waste).  
+      </div>
+      <h4>
+        Press F5 to start the simulation over. Quite often everyone goes extinct!  
+      </h4>
+    </div>
+  </body>
 </html>
 
 
